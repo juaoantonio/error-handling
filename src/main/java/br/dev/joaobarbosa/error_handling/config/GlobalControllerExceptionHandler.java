@@ -11,7 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalControllerExceptionHandler {
     @ExceptionHandler(BaseHttpException.class)
-    public ProblemDetail handleBaseHttpException(BaseHttpException exception, ServletWebRequest request) {
+    public ProblemDetail handleBaseHttpException(BaseHttpException exception) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(exception.getStatus(), exception.getMessage());
         pd.setTitle(exception.getName());
         pd.setType(URI.create(
@@ -93,9 +93,20 @@ public class GlobalControllerExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = String.format("Parâmetro '%s' deve ser do tipo `%s`", ex.getName(), ex.getRequiredType());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        pd.setTitle("BadRequestException");
+        pd.setType(URI.create("about:blank#type-mismatch"));
+        pd.setProperty("action", "Corrija o tipo do parâmetro informado.");
+        pd.setProperty("timestamp", OffsetDateTime.now());
+        return pd;
+    }
+
     // === Not Found → 404 ===
     @ExceptionHandler(NoResourceFoundException.class)
-    public ProblemDetail handleNotFound(NoResourceFoundException ex) {
+    public ProblemDetail handleNotFound() {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Recurso não encontrado");
         pd.setTitle("NotFoundException");
         pd.setType(URI.create("about:blank#not-found"));
@@ -106,7 +117,7 @@ public class GlobalControllerExceptionHandler {
 
     // === Fallback → 500 ===
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleUnexpected(Exception ex) {
+    public ProblemDetail handleUnexpected() {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error");
         pd.setTitle("InternalServerErrorException");
         pd.setType(URI.create("about:blank#internal"));
